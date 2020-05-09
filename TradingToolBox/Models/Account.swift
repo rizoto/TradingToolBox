@@ -149,34 +149,19 @@ private extension Account {
         }
         // take profit or trigger stop loss
         for index in 0...openPositions.count-1 {
-            if !price.bid_ask && openPositions[index].state == .open && openPositions[index].units > 0 {
-            // long
-            // profit
-                if openPositions[index].profit != 0 && openPositions[index].profit <= price.price {
-                    openPositions[index].closeTime = Date()
-                    openPositions[index].closePrice = price.price
-                    openPositions[index].state = .closed
-                    pl += (openPositions[index].units * (price.price - openPositions[index].price))
-                } else if openPositions[index].stop != 0 && openPositions[index].stop >= price.price {
-                    openPositions[index].closeTime = Date()
-                    openPositions[index].closePrice = price.price
-                    openPositions[index].state = .closed
-                    pl += (openPositions[index].units * (price.price - openPositions[index].price))
-                }
-            // stop loss
-            } else if price.bid_ask && openPositions[index].state == .open && openPositions[index].units < 0 {
-            // short
-//                openPositions[index].closeTime = Date()
-//                openPositions[index].closePrice = price.price
-//                openPositions[index].state = .closed
-//                pl += (openPositions[index].units * (price.price - openPositions[index].price))
+            if takeProfitStopLossCondition(price: price, trade: openPositions[index]) {
+                openPositions[index].closeTime = Date()
+                openPositions[index].closePrice = price.price
+                openPositions[index].state = .closed
+                pl += (openPositions[index].units * (price.price - openPositions[index].price))
             }
         }
     }
     
     func takeProfitStopLossCondition(price: FlatPrice, trade: Trade) -> Bool {
-        return (!price.bid_ask && trade.state == .open && trade.units > 0) &&
-        ((trade.profit != 0 && trade.profit <= price.price) ||
-            (trade.stop != 0 && trade.stop >= price.price))
+        return ((!price.bid_ask && trade.state == .open && trade.units > 0) &&
+        ((trade.profit != 0 && trade.profit <= price.price) || (trade.stop != 0 && trade.stop >= price.price))) ||
+        ((price.bid_ask && trade.state == .open && trade.units < 0) &&
+        ((trade.profit != 0 && trade.profit >= price.price) || (trade.stop != 0 && trade.stop <= price.price)))
     }
 }

@@ -114,5 +114,17 @@ class AccountTests: XCTestCase {
         XCTAssert(account.pl != 0.0)
         XCTAssert(account.openPositions.first?.state == .closed)
     }
+    
+    func testShouldCloseShortFromMarketOrderWithStop() throws {
+        let account = Account(hedgingEnabled: true)
+        _ = account.createMarketOrderRequest(instrument: "AAA", units: -1.0, price: 5.0, profit: 3.0, stop: 6.5)
+        account.processTick(price: FlatPrice(instrument: "AAA", time: 0, tradeable: true, bid_ask: false, price: 1.0, liquidity: 1))
+        XCTAssert(account.orders.first?.orderState == .filled)
+        XCTAssert(account.openPositions.count > 0)
+        XCTAssert(account.pl == 0.0)
+        account.processTick(price: FlatPrice(instrument: "AAA", time: 0, tradeable: true, bid_ask: true, price: 6.5, liquidity: 1))
+        XCTAssert(account.pl != 0.0)
+        XCTAssert(account.openPositions.first?.state == .closed)
+    }
 
 }
