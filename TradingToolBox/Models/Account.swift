@@ -10,8 +10,8 @@ import Foundation
 //import Combine
 
 protocol AccountManager {
-    func createMarketOrderRequest(instrument: String, units: Double, price: Double) -> Bool
-    func createLimitOrderRequest(instrument: String, units: Double, price: Double) -> Bool
+    func createMarketOrderRequest(instrument: String, units: Double, price: Double, profit: Double, stop: Double) -> Bool
+    func createLimitOrderRequest(instrument: String, units: Double, price: Double, profit: Double, stop: Double) -> Bool
     func processTick(price: FlatPrice) -> Void
 //    func closePositionsRequest()
 }
@@ -36,12 +36,12 @@ public class Account {
 
 extension Account: AccountManager {
     //MARK: Process orders
-    func createMarketOrderRequest(instrument: String, units: Double, price: Double) -> Bool {
-        orders.append(Order(instrument: instrument, units: units, requestPrice: price, orderType: .market, openTime: Date(), orderState: .pending))
+    func createMarketOrderRequest(instrument: String, units: Double, price: Double, profit: Double = 0.0, stop: Double = 0.0) -> Bool {
+        orders.append(Order(instrument: instrument, units: units, requestPrice: price, orderType: .market, openTime: Date(), orderState: .pending, requestPriceProfit: profit, requestStopLoss: stop))
         return true
     }
-    func createLimitOrderRequest(instrument: String, units: Double, price: Double) -> Bool {
-        orders.append(Order(instrument: instrument, units: units, requestPrice: price, orderType: .limit, openTime: Date(), orderState: .pending))
+    func createLimitOrderRequest(instrument: String, units: Double, price: Double, profit: Double = 0.0, stop: Double = 0.0) -> Bool {
+        orders.append(Order(instrument: instrument, units: units, requestPrice: price, orderType: .limit, openTime: Date(), orderState: .pending, requestPriceProfit: profit, requestStopLoss: stop))
         return true
     }
     var marketOrdersCount: Int {
@@ -68,7 +68,7 @@ extension Account: AccountManager {
                 }
             }
         }
-        // if requested, close positions
+        // if requested or profit or stoploss, close positions
         closePositionsRequest(price: price)
         
         // set previous tick
@@ -96,7 +96,7 @@ private extension Account {
             // fill the order with the first tick
             if (price.bid_ask && order.units > 0) || (!price.bid_ask && order.units < 0) {
                 // buy (long) || sell (short)
-                openPositions.append(Trade(instrument: order.instrument, units: order.units, price: price.price, openTime: Date(), state: .open))
+                openPositions.append(Trade(instrument: order.instrument, units: order.units, price: price.price, openTime: Date(), state: .open, profit: order.requestPriceProfit, stop: order.requestStopLoss))
                 // change status to filled
                 order.orderState = .filled
             }
@@ -104,7 +104,7 @@ private extension Account {
         if order.orderType == .limit {
             // assumption: hedging enabled, must cross the price from either direction
             if fillLimitOrderCondition(price: price, order: order) {
-                openPositions.append(Trade(instrument: order.instrument, units: order.units, price: price.price, openTime: Date(), state: .open))
+                openPositions.append(Trade(instrument: order.instrument, units: order.units, price: price.price, openTime: Date(), state: .open, profit: order.requestPriceProfit, stop: order.requestStopLoss))
                 // change status to filled
                 order.orderState = .filled
             }
@@ -147,5 +147,36 @@ private extension Account {
             }
             shouldCloseShortPositions = false
         }
+        // take profit or trigger stop loss
+        for index in 0...openPositions.count-1 {
+            if !price.bid_ask && openPositions[index].state == .open && openPositions[index].units > 0 {
+            // long
+            // profit
+                if openPositions[index].profit != 0 && openPositions[index].profit <= price.price {
+                    openPositions[index].closeTime = Date()
+                    openPositions[index].closePrice = price.price
+                    openPositions[index].state = .closed
+                    pl += (openPositions[index].units * (price.price - openPositions[index].price))
+                } else if openPositions[index].stop != 0 && openPositions[index].stop >= price.price {
+                    openPositions[index].closeTime = Date()
+                    openPositions[index].closePrice = price.price
+                    openPositions[index].state = .closed
+                    pl += (openPositions[index].units * (price.price - openPositions[index].price))
+                }
+            // stop loss
+            } else if price.bid_ask && openPositions[index].state == .open && openPositions[index].units < 0 {
+            // short
+//                openPositions[index].closeTime = Date()
+//                openPositions[index].closePrice = price.price
+//                openPositions[index].state = .closed
+//                pl += (openPositions[index].units * (price.price - openPositions[index].price))
+            }
+        }
+    }
+    
+    func takeProfitStopLossCondition(price: FlatPrice, trade: Trade) -> Bool {
+        return (!price.bid_ask && trade.state == .open && trade.units > 0) &&
+        ((trade.profit != 0 && trade.profit <= price.price) ||
+            (trade.stop != 0 && trade.stop >= price.price))
     }
 }

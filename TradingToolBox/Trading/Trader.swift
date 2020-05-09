@@ -20,7 +20,7 @@ public protocol PublicTrading {
 }
 
 protocol Trading {
-    func createMarketOrderRequest(instrument: String, units: Double, price: Double) -> Bool
+//    func createMarketOrderRequest(instrument: String, units: Double, price: Double) -> Bool
 }
 
 public class Trader {
@@ -44,9 +44,6 @@ struct BasicStrategy4UnitTest: Strategy {
 }
 
 extension Trader: Trading {
-    func createMarketOrderRequest(instrument: String, units: Double, price: Double) -> Bool {
-        account.createMarketOrderRequest(instrument: instrument, units: units, price: price)
-    }
     
     public func runStrategy(strategy: Strategy) {
         let sub = ticks

@@ -21,4 +21,6 @@ struct Trade {
     var closeTime: Date?
     var closePrice: Double?
     var state: TradeState
+    let profit: Double
+    let stop: Double
 }

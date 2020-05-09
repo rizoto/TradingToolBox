@@ -25,5 +25,7 @@ struct Order {
     let orderType: OrderType
     let openTime: Date
     var orderState: OrderState
+    let requestPriceProfit: Double
+    let requestStopLoss: Double
 }
 
